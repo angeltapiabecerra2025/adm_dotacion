@@ -624,14 +624,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let tInicio = 0, tTermino = 0, tFinal = 0, tVigentes = 0, tIngresos = 0, tFiniquitos = 0;
         let tLicencia = 0, tMod = 0, tMoi = 0, tHombres = 0, tMujeres = 0;
 
-        // Quitamos la lÃ³gica de mostrar la secciÃ³n de resultados automÃ¡ticamente en el render,
-        // para que solo se muestre cuando procesan o cuando tocan Historial.
-        
-        data.forEach(stat => {
+        // Calcular los totales de los widgets usando SÓLO el periodo actual
+        latestData.forEach(stat => {
             tInicio += stat.dotInicio; tTermino += stat.dotTermino; tFinal += stat.dotFinal; tVigentes += stat.vigentes;
             tIngresos += stat.ingresos; tFiniquitos += stat.finiquitos; tLicencia += stat.licencia;
             tMod += stat.mod; tMoi += stat.moi; tHombres += stat.hombres; tMujeres += stat.mujeres;
+        });
 
+        // Generar la tabla de historial con todos los datos
+        data.forEach(stat => {
             let variacion = stat.dotInicio > 0 ? ((stat.dotTermino - stat.dotInicio) / stat.dotInicio) * 100 : 0;
 
             const tr = document.createElement('tr');
