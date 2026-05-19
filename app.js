@@ -993,9 +993,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.length > 0) {
             const dataToExport = data.map(stat => ({
                 "PROYECTO": stat.proyecto,
-                "DOTACIÃ“N INICIO SEMANA": stat.dotInicio,
-                "DOTACIÃ“N TERMINO SEMANA": stat.dotTermino,
-                "DOTACIÃ“N FINAL DE LA SEMANA": stat.dotFinal,
+                "DOTACION INICIO SEMANA": stat.dotInicio,
+                "DOTACION TERMINO SEMANA": stat.dotTermino,
+                "DOTACION FINAL DE LA SEMANA": stat.dotFinal,
                 "VIGENTES DEL PERIODO": stat.vigentes,
                 "INGRESOS DEL PERIODO": stat.ingresos,
                 "FINIQUITOS DEL PERIODO": stat.finiquitos,
@@ -1004,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 "PERSONAL MOI": stat.moi,
                 "PERSONAL MASCULINO": stat.hombres,
                 "PERSONAL FEMENINO": stat.mujeres,
-                "VARIACIÃ“N": ((stat.dotInicio > 0 ? ((stat.dotTermino - stat.dotInicio) / stat.dotInicio) : 0) * 100).toFixed(2) + '%'
+                "VARIACION": ((stat.dotInicio > 0 ? ((stat.dotTermino - stat.dotInicio) / stat.dotInicio) : 0) * 100).toFixed(2) + '%'
             }));
             const ws = XLSX.utils.json_to_sheet(dataToExport);
             const wb = XLSX.utils.book_new();
