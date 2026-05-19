@@ -1013,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('btn-export-db').addEventListener('click', async () => {
         try {
-            const allRecords = await getAllRecords();
+            const allRecords = await loadAllFromDB();
             if (allRecords.length === 0) {
                 alert("La base de datos está vacía. No hay nada que exportar.");
                 return;
@@ -1059,14 +1059,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (const record of data) {
                         if (record.proyecto && record.isoDate) {
                             record.id = `${record.proyecto}_${record.isoDate}`; 
-                            await putRecord(record);
+                            await saveProjectsToDB([record]);
                             successCount++;
                         }
                     }
                     alert(`¡Backup importado exitosamente! Se cargaron ${successCount} registros.`);
                     inputImport.value = ''; 
                     
-                    await loadGlobalData();
+                    const newData = await loadAllFromDB();
+                    globalSummaryData = {};
+                    newData.forEach(stat => {
+                        globalSummaryData[stat.id] = stat;
+                    });
+                    renderSummary();
                     if (!document.querySelector('.upload-section').style.display || document.querySelector('.upload-section').style.display === 'none') {
                         document.getElementById('btn-historial').click();
                     }
