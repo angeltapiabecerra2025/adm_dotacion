@@ -606,14 +606,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sort by date descending
         data.sort((a, b) => (b.isoDate || "").localeCompare(a.isoDate || ""));
 
-        // Extract only the latest period per project for the current status charts
-        const latestByProj = {};
-        data.forEach(stat => {
-            if (!latestByProj[stat.proyecto]) {
-                latestByProj[stat.proyecto] = stat;
-            }
-        });
-        const latestData = Object.values(latestByProj);
+        // Extraer SOLO el periodo máximo global para los gráficos de estado actual
+        let latestData = [];
+        if (data.length > 0) {
+            const maxIsoDate = data[0].isoDate; // Como está ordenado descendente, el primero es el mayor
+            latestData = data.filter(stat => stat.isoDate === maxIsoDate);
+        }
 
         const tbody = document.getElementById('summary-tbody');
         const tfoot = document.getElementById('summary-tfoot');
