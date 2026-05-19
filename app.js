@@ -1007,5 +1007,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ==========================================
+    // EXPORT / IMPORT DATABASE (JSON)
+    // ==========================================
+    
+    document.getElementById('btn-export-db').addEventListener('click', async () => {
+        try {
+            const allRecords = await getAllRecords();
+            if (allRecords.length === 0) {
+                alert("La base de datos está vacía. No hay nada que exportar.");
+                return;
+            }
+            const jsonString = JSON.stringify(allRecords, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().split('T')[0];
+            a.download = `AdmPersonas_Backup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error al exportar:", error);
+            alert("Hubo un error al exportar la base de datos.");
+        }
+    });
+
+    const btnImport = document.getElementById('btn-import-db');
+    const inputImport = document.getElementById('input-import-db');
+    
+    if (btnImport && inputImport) {
+        btnImport.addEventListener('click', () => {
+            inputImport.click();
+        });
+
+        inputImport.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    if (!Array.isArray(data)) {
+                        throw new Error("El archivo no tiene el formato correcto (debe ser un array de registros).");
+                    }
+                    
+                    let successCount = 0;
+                    for (const record of data) {
+                        if (record.proyecto && record.isoDate) {
+                            record.id = `${record.proyecto}_${record.isoDate}`; 
+                            await putRecord(record);
+                            successCount++;
+                        }
+                    }
+                    alert(`¡Backup importado exitosamente! Se cargaron ${successCount} registros.`);
+                    inputImport.value = ''; 
+                    
+                    await loadGlobalData();
+                    if (!document.querySelector('.upload-section').style.display || document.querySelector('.upload-section').style.display === 'none') {
+                        document.getElementById('btn-historial').click();
+                    }
+                } catch (error) {
+                    console.error("Error importando:", error);
+                    alert("Error al importar el archivo JSON. Verifica que sea un backup válido de la aplicación.");
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
     document.getElementById('btn-filter')?.addEventListener('click', renderSummary);
 });
