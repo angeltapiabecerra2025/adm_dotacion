@@ -606,6 +606,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sort by date descending
         data.sort((a, b) => (b.isoDate || "").localeCompare(a.isoDate || ""));
 
+        // Extract only the latest period per project for the current status charts
+        const latestByProj = {};
+        data.forEach(stat => {
+            if (!latestByProj[stat.proyecto]) {
+                latestByProj[stat.proyecto] = stat;
+            }
+        });
+        const latestData = Object.values(latestByProj);
+
         const tbody = document.getElementById('summary-tbody');
         const tfoot = document.getElementById('summary-tfoot');
         const statsContainer = document.getElementById('stats-container');
@@ -733,7 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!turnosTbody) return;
             turnosTbody.innerHTML = '';
             const turnosGrouped = {};
-            data.forEach(stat => {
+            latestData.forEach(stat => {
                 const proj = stat.proyecto;
                 if (!turnosGrouped[proj]) turnosGrouped[proj] = {
                     mod: { '04X03':0,'05X02':0,'06X01':0,'07X07':0,'08X06':0,'14X14':0,'15X13':0,'21X07':0 },
@@ -808,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ctx = document.getElementById('balanceChart');
             if (!ctx) return;
             const cg = {};
-            data.forEach(s => { if (!cg[s.proyecto]) cg[s.proyecto]={inicio:0,termino:0}; cg[s.proyecto].inicio+=s.dotInicio; cg[s.proyecto].termino+=s.dotTermino; });
+            latestData.forEach(s => { if (!cg[s.proyecto]) cg[s.proyecto]={inicio:0,termino:0}; cg[s.proyecto].inicio+=s.dotInicio; cg[s.proyecto].termino+=s.dotTermino; });
             const sorted = Object.keys(cg).sort((a,b) => cg[b].inicio-cg[a].inicio);
             const balWrapper = document.getElementById('balanceChartWrapper');
             if (balWrapper) balWrapper.style.width = Math.max(balWrapper.parentElement.clientWidth, sorted.length*60)+'px';
@@ -829,7 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalDistCtx = document.getElementById('totalDistribucionChart');
             if (!distCtx || !totalDistCtx) return;
             const dg = {}; let gMod=0, gMoi=0;
-            data.forEach(s => { if(!dg[s.proyecto]) dg[s.proyecto]={mod:0,moi:0}; dg[s.proyecto].mod+=s.mod; dg[s.proyecto].moi+=s.moi; gMod+=s.mod; gMoi+=s.moi; });
+            latestData.forEach(s => { if(!dg[s.proyecto]) dg[s.proyecto]={mod:0,moi:0}; dg[s.proyecto].mod+=s.mod; dg[s.proyecto].moi+=s.moi; gMod+=s.mod; gMoi+=s.moi; });
             const sorted = Object.keys(dg).sort((a,b)=>(dg[b].mod+dg[b].moi)-(dg[a].mod+dg[a].moi));
             const modPcts=[], modRaws=[], moiPcts=[], moiRaws=[];
             sorted.forEach(p => { const t=dg[p].mod+dg[p].moi; modRaws.push(dg[p].mod); moiRaws.push(dg[p].moi); modPcts.push(t>0?(dg[p].mod/t)*100:0); moiPcts.push(t>0?(dg[p].moi/t)*100:0); });
@@ -854,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalGenCtx = document.getElementById('totalGeneroChart');
             if (!genCtx || !totalGenCtx) return;
             const gg = {}; let gFem=0, gMas=0;
-            data.forEach(s => { if(!gg[s.proyecto]) gg[s.proyecto]={fem:0,mas:0}; gg[s.proyecto].fem+=s.mujeres; gg[s.proyecto].mas+=s.hombres; gFem+=s.mujeres; gMas+=s.hombres; });
+            latestData.forEach(s => { if(!gg[s.proyecto]) gg[s.proyecto]={fem:0,mas:0}; gg[s.proyecto].fem+=s.mujeres; gg[s.proyecto].mas+=s.hombres; gFem+=s.mujeres; gMas+=s.hombres; });
             const sorted = Object.keys(gg).sort((a,b)=>(gg[b].fem+gg[b].mas)-(gg[a].fem+gg[a].mas));
             const femPcts=[], femRaws=[], masPcts=[], masRaws=[];
             sorted.forEach(p => { const t=gg[p].fem+gg[p].mas; femRaws.push(gg[p].fem); masRaws.push(gg[p].mas); femPcts.push(t>0?(gg[p].fem/t)*100:0); masPcts.push(t>0?(gg[p].mas/t)*100:0); });
