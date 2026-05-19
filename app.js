@@ -1050,17 +1050,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
             reader.onload = async (event) => {
                 try {
-                    const data = JSON.parse(event.target.result);
+                    let data = JSON.parse(event.target.result);
+                    // Si por algún motivo era un objeto (diccionario) en vez de array, lo convertimos
+                    if (data && !Array.isArray(data) && typeof data === 'object') {
+                        data = Object.values(data);
+                    }
                     if (!Array.isArray(data)) {
                         throw new Error("El archivo no tiene el formato correcto (debe ser un array de registros).");
                     }
                     
                     let successCount = 0;
                     for (const record of data) {
-                        if (record.proyecto && record.isoDate) {
-                            record.id = `${record.proyecto}_${record.isoDate}`; 
-                            await saveProjectsToDB([record]);
-                            successCount++;
+                        if (record.proyecto) {
+                            if (!record.id) {
+                                record.id = `${record.proyecto}_${record.isoDate || record.semanaDate || Date.now()}`; 
+                            }
+                            try {
+                                await saveProjectsToDB([record]);
+                                successCount++;
+                            } catch (err) {
+                                console.warn("No se pudo guardar el registro:", record, err);
+                            }
                         }
                     }
                     alert(`¡Backup importado exitosamente! Se cargaron ${successCount} registros.`);
@@ -1077,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) {
                     console.error("Error importando:", error);
-                    alert("Error al importar el archivo JSON. Verifica que sea un backup válido de la aplicación.");
+                    alert("Error al importar el archivo JSON: " + error.message);
                 }
             };
             reader.readAsText(file);
