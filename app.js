@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Buscar hoja que contenga "reporte diario" o usar la primera como respaldo
             let targetSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('reporte diario'));
             if (!targetSheetName) {
-                console.warn("No se encontrÃ³ hoja con nombre 'reporte diario', usando la primera hoja.");
+                console.warn("No se encontró hoja con nombre 'reporte diario', usando la primera hoja.");
                 targetSheetName = workbook.SheetNames[0];
             }
             const worksheet = workbook.Sheets[targetSheetName];
@@ -553,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildExportWorkbookWithTemplateRaw(rawRows, sourceFileObj, prefix) {
         const fileName = prefix + sourceFileObj.filename;
         if (typeof TEMPLATE_BASE64 === 'undefined') {
-            console.warn("Plantilla no encontrada, haciendo fallback a xlsx bÃ¡sico.");
+            console.warn("Plantilla no encontrada, haciendo fallback a xlsx básico.");
             const ws = XLSX.utils.aoa_to_sheet(rawRows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Datos");
@@ -702,7 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', async (e) => {
                 const idToDelete = e.currentTarget.getAttribute('data-id');
                 const stat = globalSummaryData[idToDelete];
-                if (confirm(`Â¿Seguro que deseas eliminar el registro de ${stat.proyecto} (Semana: ${stat.fechaSemana})?`)) {
+                if (confirm(`¿Seguro que deseas eliminar el registro de ${stat.proyecto} (Semana: ${stat.fechaSemana})?`)) {
                     delete globalSummaryData[idToDelete];
                     await deleteProjectFromDB(idToDelete);
                     renderSummary();
@@ -728,10 +728,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show KPI cards and table immediately
         statsContainer.innerHTML = `
-            <div class="stat-card blue"><div class="stat-title">DotaciÃ³n Inicial</div><div class="stat-value">${tInicio}</div></div>
+            <div class="stat-card blue"><div class="stat-title">Dotación Inicial</div><div class="stat-value">${tInicio}</div></div>
             <div class="stat-card green"><div class="stat-title">Ingresos Acumulados</div><div class="stat-value">+${tIngresos}</div></div>
             <div class="stat-card red"><div class="stat-title">Finiquitos Acumulados</div><div class="stat-value">-${tFiniquitos}</div></div>
-            <div class="stat-card yellow"><div class="stat-title">Licencias MÃ©dicas</div><div class="stat-value">${tLicencia}</div></div>
+            <div class="stat-card yellow"><div class="stat-title">Licencias Médicas</div><div class="stat-value">${tLicencia}</div></div>
         `;
 
         // Defer heavy chart rendering so UI never freezes
@@ -827,8 +827,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.restore();
             }};
             window.balanceChartInstance = new Chart(ctx, { type:'bar', data:{ labels:sorted, datasets:[
-                {label:'DotaciÃ³n Inicio de Semana',data:sorted.map(p=>cg[p].inicio),backgroundColor:'#E63946',barPercentage:0.8,categoryPercentage:0.9,borderRadius:4},
-                {label:'DotaciÃ³n Termino de Semana',data:sorted.map(p=>cg[p].termino),backgroundColor:'#1D3557',barPercentage:0.8,categoryPercentage:0.9,borderRadius:4}
+                {label:'Dotación Inicio de Semana',data:sorted.map(p=>cg[p].inicio),backgroundColor:'#E63946',barPercentage:0.8,categoryPercentage:0.9,borderRadius:4},
+                {label:'Dotación Término de Semana',data:sorted.map(p=>cg[p].termino),backgroundColor:'#1D3557',barPercentage:0.8,categoryPercentage:0.9,borderRadius:4}
             ]}, options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:20}}, plugins:{ legend:{position:'top',labels:{font:{family:'var(--font-body)',size:13},usePointStyle:true,padding:20}}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:12,cornerRadius:8} }, scales:{ y:{beginAtZero:true,grid:{color:'#f1f5f9',borderDash:[4,4]},ticks:{font:{family:'var(--font-body)',size:12},color:'#64748b'}}, x:{grid:{display:false},ticks:{font:{family:'var(--font-body)',size:11},color:'#64748b',maxRotation:45,minRotation:45}} } }, plugins:[dataLabelsPlugin] });
         };
 
@@ -993,18 +993,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.length > 0) {
             const dataToExport = data.map(stat => ({
                 "PROYECTO": stat.proyecto,
-                "DOTACION INICIO SEMANA": stat.dotInicio,
-                "DOTACION TERMINO SEMANA": stat.dotTermino,
-                "DOTACION FINAL DE LA SEMANA": stat.dotFinal,
+                "DOTACIÓN INICIO SEMANA": stat.dotInicio,
+                "DOTACIÓN TÉRMINO SEMANA": stat.dotTermino,
+                "DOTACIÓN FINAL DE LA SEMANA": stat.dotFinal,
                 "VIGENTES DEL PERIODO": stat.vigentes,
                 "INGRESOS DEL PERIODO": stat.ingresos,
                 "FINIQUITOS DEL PERIODO": stat.finiquitos,
-                "PERSONAL LICENCIA MEDICA": stat.licencia,
+                "PERSONAL LICENCIA MÉDICA": stat.licencia,
                 "PERSONAL MOD": stat.mod,
                 "PERSONAL MOI": stat.moi,
                 "PERSONAL MASCULINO": stat.hombres,
                 "PERSONAL FEMENINO": stat.mujeres,
-                "VARIACION": ((stat.dotInicio > 0 ? ((stat.dotTermino - stat.dotInicio) / stat.dotInicio) : 0) * 100).toFixed(2) + '%'
+                "VARIACIÓN": ((stat.dotInicio > 0 ? ((stat.dotTermino - stat.dotInicio) / stat.dotInicio) : 0) * 100).toFixed(2) + '%'
             }));
             const ws = XLSX.utils.json_to_sheet(dataToExport);
             const wb = XLSX.utils.book_new();
