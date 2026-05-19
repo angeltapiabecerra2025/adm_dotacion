@@ -631,8 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tMod += stat.mod; tMoi += stat.moi; tHombres += stat.hombres; tMujeres += stat.mujeres;
         });
 
-        // Generar la tabla de historial con todos los datos
-        data.forEach(stat => {
+        // Generar la tabla de historial mostrando sólo el último periodo
+        latestData.forEach(stat => {
             let variacion = stat.dotInicio > 0 ? ((stat.dotTermino - stat.dotInicio) / stat.dotInicio) * 100 : 0;
 
             const tr = document.createElement('tr');
