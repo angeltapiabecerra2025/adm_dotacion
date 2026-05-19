@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdmPersonas</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- SheetJS (Excel processing) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Navigation -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <i class="ph-fill ph-chart-polar"></i>
+                <h2>Adm<span>Personas</span></h2>
+            </div>
+            
+            <nav class="main-nav">
+                <a href="#" class="nav-item active">
+                    <i class="ph ph-users-three"></i>
+                    <span>Control Dotación</span>
+                </a>
+                <a href="#" class="nav-item" id="btn-historial">
+                    <i class="ph ph-clock-counter-clockwise"></i>
+                    <span>Historial</span>
+                </a>
+                <a href="#" class="nav-item" id="btn-balance">
+                    <i class="ph ph-chart-bar"></i>
+                    <span>Balance</span>
+                </a>
+                <a href="#" class="nav-item" id="btn-distribucion">
+                    <i class="ph ph-chart-polar"></i>
+                    <span>Distribución</span>
+                </a>
+                <a href="#" class="nav-item" id="btn-genero">
+                    <i class="ph ph-gender-intersex"></i>
+                    <span>Género</span>
+                </a>
+                <a href="#" class="nav-item" id="btn-historico">
+                    <i class="ph ph-trend-up"></i>
+                    <span>Histórica</span>
+                </a>
+                <a href="#" class="nav-item" id="btn-turnos">
+                    <i class="ph ph-calendar-blank"></i>
+                    <span>Turnos</span>
+                </a>
+            </nav>
+            
+            <div class="user-profile">
+                <div class="avatar">
+                    <i class="ph-fill ph-user"></i>
+                </div>
+                <div class="user-info">
+                    <span class="user-name">Administrador</span>
+                    <span class="user-role">RRHH & Operaciones</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1>Análisis de Variación de Dotación</h1>
+                    <p>Compara el inicio y término de semana para identificar cambios en el personal.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon"><i class="ph ph-bell"></i></button>
+                    <button class="btn-primary" id="btn-process" disabled>
+                        <i class="ph ph-arrows-merge"></i>
+                        Procesar Datos
+                    </button>
+                </div>
+            </header>
+
+            <div class="upload-section">
+                <!-- Dropzone 1: Inicio Semana -->
+                <div class="dropzone" id="dropzone-inicio">
+                    <input type="file" id="file-inicio" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="dropzone-content">
+                        <div class="icon-wrapper">
+                            <i class="ph ph-calendar-plus"></i>
+                        </div>
+                        <h3>Inicio de Semana</h3>
+                        <p>Sube el archivo Excel con el reporte inicial</p>
+                        <span class="file-name" id="name-inicio">Ningún archivo seleccionado</span>
+                        <button class="btn-outline" onclick="document.getElementById('file-inicio').click()">Seleccionar Archivo</button>
+                    </div>
+                </div>
+
+                <!-- Dropzone 2: Fin Semana -->
+                <div class="dropzone" id="dropzone-fin">
+                    <input type="file" id="file-fin" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="dropzone-content">
+                        <div class="icon-wrapper end-week">
+                            <i class="ph ph-calendar-check"></i>
+                        </div>
+                        <h3>Término de Semana</h3>
+                        <p>Sube el archivo Excel con el reporte de cierre</p>
+                        <span class="file-name" id="name-fin">Ningún archivo seleccionado</span>
+                        <button class="btn-outline" onclick="document.getElementById('file-fin').click()">Seleccionar Archivo</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loader -->
+            <div class="loader-container" id="loader" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analizando variaciones y depurando registros antiguos...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="results-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Resumen de Dotación</h2>
+                    <div class="filters-container" style="display: flex; gap: 16px; align-items: center; margin-left: auto; margin-right: 24px;">
+                        <div class="date-filter" style="display: flex; align-items: center; gap: 8px;">
+                            <label for="filter-desde" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Desde:</label>
+                            <input type="date" id="filter-desde" style="padding: 8px; border-radius: var(--radius-md); border: 1px solid var(--border); outline: none;">
+                        </div>
+                        <div class="date-filter" style="display: flex; align-items: center; gap: 8px;">
+                            <label for="filter-hasta" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Hasta:</label>
+                            <input type="date" id="filter-hasta" style="padding: 8px; border-radius: var(--radius-md); border: 1px solid var(--border); outline: none;">
+                        </div>
+                        <button class="btn-outline" id="btn-filter" style="padding: 8px 16px;">Filtrar</button>
+                    </div>
+                    <div class="export-actions">
+                        <button class="btn-export primary" id="export-summary">
+                            <i class="ph ph-microsoft-excel-logo"></i>
+                            Exportar Resumen
+                        </button>
+                    </div>
+                </div>
+
+                <div class="stats-grid" id="stats-container">
+                    <!-- Stats will be dynamically injected here -->
+                </div>
+
+                <div class="table-container">
+                    <table id="summary-table">
+                        <thead>
+                            <tr>
+                                <th>SEMANA</th>
+                                <th>PROYECTO</th>
+                                <th>DOT. INICIO</th>
+                                <th>DOT. TERMINO</th>
+                                <th>DOT. FINAL</th>
+                                <th>VIGENTES</th>
+                                <th>INGRESOS</th>
+                                <th>FINIQUITOS</th>
+                                <th>LICENCIA MEDICA</th>
+                                <th>MOD</th>
+                                <th>MOI</th>
+                                <th>HOMBRES</th>
+                                <th>MUJERES</th>
+                                <th>VARIACIÓN</th>
+                                <th>ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody class="totals-body" id="summary-tfoot">
+                            <!-- Totals injected via JS -->
+                        </tbody>
+                        <tbody id="summary-tbody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="balance-section" id="balance-section" style="display: none; animation: slideUp 0.5s ease forwards; margin-top: 32px;">
+                <div class="section-header">
+                    <h2>Balance de Dotación por Proyecto</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); height: 500px; overflow-x: auto; overflow-y: hidden;">
+                    <div id="balanceChartWrapper" style="position: relative; height: 100%; min-width: 100%;">
+                        <canvas id="balanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="distribucion-section" id="distribucion-section" style="display: none; animation: slideUp 0.5s ease forwards; margin-top: 32px;">
+                <div class="section-header">
+                    <h2>Distribución por Tipo: MOD y MOI</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); margin-bottom: 24px; height: 500px; overflow-y: auto;">
+                    <div id="distribucionChartWrapper" style="position: relative; height: 500px; min-height: 100%;">
+                        <canvas id="distribucionChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="section-header">
+                    <h2>Total Distribución por Tipo</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); height: 180px; position: relative;">
+                    <canvas id="totalDistribucionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="genero-section" id="genero-section" style="display: none; animation: slideUp 0.5s ease forwards; margin-top: 32px;">
+                <div class="section-header">
+                    <h2>Distribución por Género: Femenino y Masculino</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); margin-bottom: 24px; height: 500px; overflow-y: auto;">
+                    <div id="generoChartWrapper" style="position: relative; height: 500px; min-height: 100%;">
+                        <canvas id="generoChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="section-header">
+                    <h2>Total Distribución por Género</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); height: 180px; position: relative;">
+                    <canvas id="totalGeneroChart"></canvas>
+                </div>
+            </div>
+
+            <div class="historico-section" id="historico-section" style="display: none; animation: slideUp 0.5s ease forwards; margin-top: 32px;">
+                <div class="section-header">
+                    <h2>Dotación Histórica por Proyecto</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); height: 600px; overflow-x: auto; overflow-y: hidden;">
+                    <div id="historicoChartWrapper" style="position: relative; height: 100%; min-width: 100%;">
+                        <canvas id="historicoChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="turnos-section" id="turnos-section" style="display: none; animation: slideUp 0.5s ease forwards; margin-top: 32px;">
+                <div class="section-header">
+                    <h2>Distribución por Turnos</h2>
+                </div>
+                <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); padding: 0; overflow: hidden;">
+                    <div style="overflow-x: auto; overflow-y: auto; max-height: 580px;">
+                    <table class="data-table" style="border-collapse: separate; border-spacing: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3); white-space: nowrap;">PROYECTO</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">04X03</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">05X02</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">06X01</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">07X07</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">08X06</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">14X14</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">15X13</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">21X07</th>
+                                <th style="position: sticky; top: 0; z-index: 2; background: #1D3557; color: white; padding: 14px 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.3); white-space: nowrap;">TOTAL GENERAL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="turnos-tbody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                        <tfoot id="turnos-tfoot">
+                            <!-- Totals injected via JS -->
+                        </tfoot>
+                    </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Semana -->
+    <div id="modal-semana" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 32px; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-bottom: 16px; font-family: var(--font-heading); color: var(--primary);">Confirmar Periodo</h3>
+            <p style="margin-bottom: 16px; color: var(--text-muted); font-size: 14px;">Indique las fechas de inicio y término a las que corresponden estos archivos.</p>
+            <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+                <div style="flex: 1;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Desde:</label>
+                    <input type="date" id="input-semana-desde" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-body); outline: none;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Hasta:</label>
+                    <input type="date" id="input-semana-hasta" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-body); outline: none;">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button id="btn-cancel-semana" class="btn-outline">Cancelar</button>
+                <button id="btn-confirm-semana" class="btn-primary" style="padding: 10px 20px;">Procesar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="template.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
