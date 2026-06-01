@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Timeout just for UX smooth loader
         setTimeout(async () => {
-            await analyzeData({ name: manualSemanaName, isoDate: customIsoDate });
+            await analyzeData({ name: manualSemanaName, isoDate: customIsoDate, desdeDate: desdeVal, hastaDate: hastaVal });
             loader.style.display = 'none';
             resultsSection.style.display = 'block';
             btnProcess.disabled = false;
@@ -529,8 +529,19 @@ document.addEventListener('DOMContentLoaded', () => {
             stat.dotTermino = stat.dotFinal - stat.finiquitos;
             stat.inicioRawRows = inicioRowsByProj[proj] || [];
             stat.finRawRows = finRowsByProj[proj] || [];
-            stat.inicioSourceInfo = { filename: dataInicio.filename, projectName: dataInicio.projectName, dateValue: dataInicio.dateValue };
-            stat.finSourceInfo = { filename: dataFin.filename, projectName: dataFin.projectName, dateValue: dataFin.dateValue };
+            
+            // Format dates from YYYY-MM-DD to DD-MM-YYYY if available
+            const formatFullDate = (d) => {
+                if (!d) return "";
+                const p = d.split('-');
+                if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
+                return d;
+            };
+            const fDesde = formatFullDate(semanaInfo.desdeDate) || dataInicio.dateValue;
+            const fHasta = formatFullDate(semanaInfo.hastaDate) || dataFin.dateValue;
+
+            stat.inicioSourceInfo = { filename: dataInicio.filename, projectName: dataInicio.projectName, dateValue: fDesde };
+            stat.finSourceInfo = { filename: dataFin.filename, projectName: dataFin.projectName, dateValue: fHasta };
             stat.fechaSemana = semanaInfo.name;
             stat.isoDate = isoStr;
             stat.semanaDate = isoStr;
