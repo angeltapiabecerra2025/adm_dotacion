@@ -991,17 +991,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('export-summary').addEventListener('click', () => {
         let data = Object.values(globalSummaryData);
         
-        // Aplicar filtros de fecha si existen
-        const desde = document.getElementById('filter-desde')?.value;
-        const hasta = document.getElementById('filter-hasta')?.value;
-        
-        if (desde) data = data.filter(stat => stat.isoDate && stat.isoDate >= desde);
-        if (hasta) data = data.filter(stat => stat.isoDate && stat.isoDate <= hasta);
-        
         // Ordenar por fecha descendente
         data.sort((a, b) => (b.isoDate || "").localeCompare(a.isoDate || ""));
 
-        // Tomar SOLO el periodo máximo para que coincida exactamente con la tabla visible
+        // Tomar SIEMPRE SOLO el último periodo subido (máximo global)
         let latestData = [];
         if (data.length > 0) {
             const maxIsoDate = data[0].isoDate;
