@@ -989,9 +989,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('export-summary').addEventListener('click', () => {
-        const data = Object.values(globalSummaryData);
+        let data = Object.values(globalSummaryData);
+        
+        // Aplicar filtros de fecha si existen
+        const desde = document.getElementById('filter-desde')?.value;
+        const hasta = document.getElementById('filter-hasta')?.value;
+        
+        if (desde) data = data.filter(stat => stat.isoDate && stat.isoDate >= desde);
+        if (hasta) data = data.filter(stat => stat.isoDate && stat.isoDate <= hasta);
+        
+        // Ordenar por fecha descendente
+        data.sort((a, b) => (b.isoDate || "").localeCompare(a.isoDate || ""));
+
+        // Tomar SOLO el periodo máximo para que coincida exactamente con la tabla visible
+        let latestData = [];
         if (data.length > 0) {
-            const dataToExport = data.map(stat => ({
+            const maxIsoDate = data[0].isoDate;
+            latestData = data.filter(stat => stat.isoDate === maxIsoDate);
+        }
+
+        if (latestData.length > 0) {
+            const dataToExport = latestData.map(stat => ({
+                "SEMANA": stat.fechaSemana || stat.isoDate || "N/A",
                 "PROYECTO": stat.proyecto,
                 "DOTACIÓN INICIO SEMANA": stat.dotInicio,
                 "DOTACIÓN TÉRMINO SEMANA": stat.dotTermino,
@@ -1011,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
             XLSX.utils.book_append_sheet(wb, ws, "Cuadro Resumen Acumulado");
             XLSX.writeFile(wb, "Resumen_General_Dotacion.xlsx");
         } else {
-            alert("No hay datos en el resumen general.");
+            alert("No hay datos para exportar con los filtros actuales.");
         }
     });
 
