@@ -268,13 +268,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             
-            let targetSheetName = workbook.SheetNames[0];
+            // Buscar la hoja llamada exactamente 'X' (o que contenga solo 'X')
+            let targetSheetName = workbook.SheetNames.find(n => n.trim().toUpperCase() === 'X');
+            if (!targetSheetName) {
+                alert("Advertencia: No se encontró una hoja llamada 'X' en el archivo. Se usará la primera hoja disponible: '" + workbook.SheetNames[0] + "'");
+                targetSheetName = workbook.SheetNames[0];
+            }
             const worksheet = workbook.Sheets[targetSheetName];
             
             const rawJson = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-            dataDepuracion = { filename: file.name, rawJson: rawJson };
+            dataDepuracion = { filename: file.name, rawJson: rawJson, sheetUsed: targetSheetName };
             
             btnProcessDepuracion.disabled = false;
+            nameDepuracion.textContent = file.name + " (Hoja: " + targetSheetName + ")";
         };
         reader.readAsArrayBuffer(file);
     }
@@ -345,11 +351,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let idxFecha = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('FECHA') && String(c).trim().toUpperCase().includes('INGRESO'));
         let idxJornada = sourceHeader.findIndex(c => String(c).trim().toUpperCase().match(/^(JORNADA|TURNO)$/));
         
+        // 2. Extraer filas de datos — DETENER al encontrar sección de FINIQUITOS
         const extractedData = [];
         for (let i = sourceHeaderIndex + 1; i < rawJson.length; i++) {
             const row = rawJson[i] || [];
             if (!row.some(cell => String(cell).trim() !== '')) continue;
-            extractedData.push({ n: row[idxN], rut: row[idxRut], nombre: row[idxNombre], cargo: row[idxCargo], fecha: row[idxFecha], jornada: row[idxJornada] });
+            
+            // Detener si la fila indica inicio de la sección de finiquitos
+            const rowText = row.map(c => String(c).trim().toUpperCase()).join(' ');
+            if (rowText.includes('FINIQUITO')) break;
+            
+            const rut = idxRut >= 0 ? String(row[idxRut] || '').trim() : '';
+            if (!rut) continue;
+            extractedData.push({
+                n:       idxN       >= 0 ? row[idxN]       : '',
+                rut:     rut,
+                nombre:  idxNombre  >= 0 ? row[idxNombre]  : '',
+                cargo:   idxCargo   >= 0 ? row[idxCargo]   : '',
+                fecha:   idxFecha   >= 0 ? row[idxFecha]   : '',
+                jornada: idxJornada >= 0 ? row[idxJornada] : ''
+            });
         }
         
         const wb = XLSX.read(TEMPLATE_ESTANDAR_BASE64, { type: 'base64', bookVBA: true });
