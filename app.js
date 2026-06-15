@@ -334,113 +334,86 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (sourceHeaderIndex === -1) {
-            throw new Error("No se pudo identificar la fila de encabezados en el archivo subido. Asegúrese de que existan las columnas RUT y NOMBRE.");
+            throw new Error("No se pudo identificar la fila de encabezados en el archivo subido.");
         }
         
         const sourceHeader = rawJson[sourceHeaderIndex] || [];
+        let idxN = sourceHeader.findIndex(c => String(c).trim().toUpperCase().match(/^(N°|Nº|N|NO\.)$/));
+        let idxRut = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('RUT'));
+        let idxNombre = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('NOMBRE'));
+        let idxCargo = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('CARGO'));
+        let idxFecha = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('FECHA') && String(c).trim().toUpperCase().includes('INGRESO'));
+        let idxJornada = sourceHeader.findIndex(c => String(c).trim().toUpperCase().match(/^(JORNADA|TURNO)$/));
         
-        // 2. Identify indices for target columns
-        let idxN = -1, idxRut = -1, idxNombre = -1, idxCargo = -1, idxFecha = -1, idxJornada = -1;
-        
-        for (let i = 0; i < sourceHeader.length; i++) {
-            const col = String(sourceHeader[i]).trim().toUpperCase();
-            if (!col) continue;
-            
-            if (col === 'N°' || col === 'Nº' || col === 'N' || col === 'NO.') idxN = i;
-            else if (col.includes('RUT')) idxRut = i;
-            else if (col.includes('NOMBRE')) idxNombre = i;
-            else if (col.includes('CARGO')) idxCargo = i;
-            else if (col.includes('FECHA') && col.includes('INGRESO')) idxFecha = i;
-            else if (col.includes('JORNADA') || col.includes('TURNO')) idxJornada = i;
-        }
-        
-        // 3. Extract the data
         const extractedData = [];
         for (let i = sourceHeaderIndex + 1; i < rawJson.length; i++) {
             const row = rawJson[i] || [];
-            if (!row.some(cell => String(cell).trim() !== '')) continue; // skip empty rows
-            
-            extractedData.push({
-                n: idxN >= 0 ? row[idxN] : '',
-                rut: idxRut >= 0 ? row[idxRut] : '',
-                nombre: idxNombre >= 0 ? row[idxNombre] : '',
-                cargo: idxCargo >= 0 ? row[idxCargo] : '',
-                fecha: idxFecha >= 0 ? row[idxFecha] : '',
-                jornada: idxJornada >= 0 ? row[idxJornada] : ''
-            });
-        }
-        
-        // 4. Load the Standard Template
-        if (typeof TEMPLATE_ESTANDAR_BASE64 === 'undefined') {
-            throw new Error("La plantilla estándar no está cargada en el sistema.");
+            if (!row.some(cell => String(cell).trim() !== '')) continue;
+            extractedData.push({ n: row[idxN], rut: row[idxRut], nombre: row[idxNombre], cargo: row[idxCargo], fecha: row[idxFecha], jornada: row[idxJornada] });
         }
         
         const wb = XLSX.read(TEMPLATE_ESTANDAR_BASE64, { type: 'base64', bookVBA: true });
+        const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('reporte diario')) || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const wsRange = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z50');
         
-        // Target Sheet: "reporte diario"
-        let targetSheetName = wb.SheetNames.find(n => n.toLowerCase().includes('reporte diario'));
-        if (!targetSheetName) {
-            targetSheetName = wb.SheetNames[0]; // fallback
-        }
-        const ws = wb.Sheets[targetSheetName];
+        // 4. Buscar fila de encabezados en la PLANTILLA leyendo celdas directamente
+        //    (evita falsos positivos por errores tipo #¿NOMBRE? en otras celdas)
+        let tHeaderRow = -1;
+        const tColMap = {};
         
-        // Read template as 2D array to find headers
-        const templateJson = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        
-        let targetHeaderIndex = -1;
-        for (let i = 0; i < Math.min(templateJson.length, 30); i++) {
-            const cells = (templateJson[i] || []).map(c => String(c).trim().toUpperCase());
-            const hasRut = cells.some(c => c === 'RUT' || c.includes('RUT'));
-            const hasNombre = cells.some(c => c === 'NOMBRE' || c.includes('NOMBRE'));
-            
-            if (hasRut && hasNombre) {
-                targetHeaderIndex = i;
+        for (let r = wsRange.s.r; r <= Math.min(wsRange.e.r, 30); r++) {
+            let foundRut = false, foundNombre = false;
+            const rowMap = {};
+            for (let c = wsRange.s.c; c <= wsRange.e.c; c++) {
+                const cell = ws[XLSX.utils.encode_cell({ r, c })];
+                if (!cell || cell.t === 'e') continue;
+                const val = String(cell.v || '').trim().toUpperCase();
+                if (!val) continue;
+                if (val === 'RUT' || val.startsWith('RUT')) { rowMap['RUT'] = c; foundRut = true; }
+                if (val.includes('NOMBRE')) { rowMap['NOMBRE'] = c; foundNombre = true; }
+                if (/^(N°|Nº|N|NO\.)$/.test(val)) rowMap['N'] = c;
+                if (val.includes('CARGO')) rowMap['CARGO'] = c;
+                if (val.includes('FECHA') && val.includes('INGRESO')) rowMap['FECHA'] = c;
+                if (/^(JORNADA|TURNO)$/.test(val)) rowMap['JORNADA'] = c;
+            }
+            if (foundRut && foundNombre) {
+                tHeaderRow = r;
+                Object.assign(tColMap, rowMap);
                 break;
             }
         }
         
-        if (targetHeaderIndex === -1) {
-            throw new Error("No se pudo identificar la fila de encabezados en la plantilla estándar.");
+        if (tHeaderRow === -1) {
+            throw new Error("No se encontró la fila de encabezados (RUT+NOMBRE) en la hoja Reporte Diario de la plantilla.");
         }
         
-        const targetHeader = templateJson[targetHeaderIndex] || [];
-        
-        // Identify indices in the template
-        let tIdxN = -1, tIdxRut = -1, tIdxNombre = -1, tIdxCargo = -1, tIdxFecha = -1, tIdxJornada = -1;
-        
-        for (let i = 0; i < targetHeader.length; i++) {
-            const col = String(targetHeader[i]).trim().toUpperCase();
-            if (!col) continue;
-            
-            if (col === 'N°' || col === 'Nº' || col === 'N') tIdxN = i;
-            else if (col === 'RUT' || col.includes('RUT')) tIdxRut = i;
-            else if (col.includes('NOMBRE')) tIdxNombre = i;
-            else if (col.includes('CARGO')) tIdxCargo = i;
-            else if (col.includes('FECHA') && col.includes('INGRESO')) tIdxFecha = i;
-            else if (col.includes('JORNADA') || col.includes('TURNO')) tIdxJornada = i;
-        }
-        
-        // Map extracted data to template rows
-        const rowsToWrite = [];
-        extractedData.forEach(d => {
-            const rowArr = new Array(targetHeader.length).fill('');
-            if (tIdxN >= 0) rowArr[tIdxN] = d.n;
-            if (tIdxRut >= 0) rowArr[tIdxRut] = d.rut;
-            if (tIdxNombre >= 0) rowArr[tIdxNombre] = d.nombre;
-            if (tIdxCargo >= 0) rowArr[tIdxCargo] = d.cargo;
-            if (tIdxFecha >= 0) rowArr[tIdxFecha] = d.fecha;
-            if (tIdxJornada >= 0) rowArr[tIdxJornada] = d.jornada;
-            rowsToWrite.push(rowArr);
+        // 5. Escribir datos celda por celda justo después del encabezado
+        const dataStartRow = tHeaderRow + 1;
+        extractedData.forEach((d, i) => {
+            const r = dataStartRow + i;
+            const setCel = (key, val) => {
+                const c = tColMap[key];
+                if (c === undefined || val === null || val === undefined || val === '') return;
+                const addr = XLSX.utils.encode_cell({ r, c });
+                const numVal = (typeof val === 'number') ? val : Number(val);
+                ws[addr] = (!isNaN(numVal) && String(val).trim() !== '')
+                    ? { t: 'n', v: numVal }
+                    : { t: 's', v: String(val) };
+            };
+            setCel('N',       d.n);
+            setCel('RUT',     d.rut);
+            setCel('NOMBRE',  d.nombre);
+            setCel('CARGO',   d.cargo);
+            setCel('FECHA',   d.fecha);
+            setCel('JORNADA', d.jornada);
         });
         
-        // Add the rows to the worksheet
-        if (rowsToWrite.length > 0) {
-            XLSX.utils.sheet_add_aoa(ws, rowsToWrite, { origin: { r: targetHeaderIndex + 1, c: 0 } });
-        }
+        wsRange.e.r = Math.max(wsRange.e.r, dataStartRow + extractedData.length - 1);
+        ws['!ref'] = XLSX.utils.encode_range(wsRange);
         
-        // Export file
-        const outFileName = "Reporte_Estandarizado_" + originalFilename.replace(/\.[^/.]+$/, "") + ".xlsm";
-        XLSX.writeFile(wb, outFileName, { bookSST: true, bookVBA: true });
+        XLSX.writeFile(wb, "Reporte_Estandarizado_" + originalFilename.replace(/\.[^/.]+$/, "") + ".xlsm", { bookSST: true, bookVBA: true });
+        alert("Proceso exitoso: " + extractedData.length + " registros exportados al Reporte Estándar.");
     }
 
     btnCancelSemana.addEventListener('click', () => {
