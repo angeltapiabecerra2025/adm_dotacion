@@ -321,14 +321,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function generarReporteEstandar(rawJson, originalFilename) {
         // 1. Find Header Row in uploaded file
-        let sourceHeaderIndex = 0;
+        let sourceHeaderIndex = -1;
         for (let i = 0; i < Math.min(rawJson.length, 30); i++) {
-            const rowStr = (rawJson[i] || []).join('').toUpperCase();
-            // Buscar una fila que contenga rut, nombre, cargo o jornada
-            if (rowStr.includes('RUT') || rowStr.includes('NOMBRE') || rowStr.includes('CARGO') || rowStr.includes('JORNADA')) {
+            const cells = (rawJson[i] || []).map(c => String(c).trim().toUpperCase());
+            const hasRut = cells.some(c => c === 'RUT' || c.includes('RUT'));
+            const hasNombre = cells.some(c => c === 'NOMBRE' || c.includes('NOMBRE'));
+            
+            if (hasRut && hasNombre) {
                 sourceHeaderIndex = i;
                 break;
             }
+        }
+        
+        if (sourceHeaderIndex === -1) {
+            throw new Error("No se pudo identificar la fila de encabezados en el archivo subido. Asegúrese de que existan las columnas RUT y NOMBRE.");
         }
         
         const sourceHeader = rawJson[sourceHeaderIndex] || [];
@@ -381,13 +387,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Read template as 2D array to find headers
         const templateJson = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
         
-        let targetHeaderIndex = 0;
+        let targetHeaderIndex = -1;
         for (let i = 0; i < Math.min(templateJson.length, 30); i++) {
-            const rowStr = (templateJson[i] || []).join('').toUpperCase();
-            if (rowStr.includes('RUT') || rowStr.includes('NOMBRE')) {
+            const cells = (templateJson[i] || []).map(c => String(c).trim().toUpperCase());
+            const hasRut = cells.some(c => c === 'RUT' || c.includes('RUT'));
+            const hasNombre = cells.some(c => c === 'NOMBRE' || c.includes('NOMBRE'));
+            
+            if (hasRut && hasNombre) {
                 targetHeaderIndex = i;
                 break;
             }
+        }
+        
+        if (targetHeaderIndex === -1) {
+            throw new Error("No se pudo identificar la fila de encabezados en la plantilla estándar.");
         }
         
         const targetHeader = templateJson[targetHeaderIndex] || [];
