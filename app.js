@@ -326,43 +326,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generarReporteEstandar(rawJson, originalFilename) {
-        // 1. Find Header Row in uploaded file
+        // 1. Buscar la fila de encabezado de la tabla (necesita RUT y NOMBRE juntos)
         let sourceHeaderIndex = -1;
-        for (let i = 0; i < Math.min(rawJson.length, 30); i++) {
+        for (let i = 0; i < rawJson.length; i++) {
             const cells = (rawJson[i] || []).map(c => String(c).trim().toUpperCase());
-            const hasRut = cells.some(c => c === 'RUT' || c.includes('RUT'));
+            const hasRut    = cells.some(c => c === 'RUT' || c.startsWith('RUT'));
             const hasNombre = cells.some(c => c === 'NOMBRE' || c.includes('NOMBRE'));
-            
-            if (hasRut && hasNombre) {
-                sourceHeaderIndex = i;
-                break;
-            }
+            if (hasRut && hasNombre) { sourceHeaderIndex = i; break; }
         }
-        
         if (sourceHeaderIndex === -1) {
-            throw new Error("No se pudo identificar la fila de encabezados en el archivo subido.");
+            throw new Error("No se encontró la fila de encabezado de la tabla en la hoja X (necesita columnas RUT y NOMBRE).");
         }
         
         const sourceHeader = rawJson[sourceHeaderIndex] || [];
-        let idxN = sourceHeader.findIndex(c => String(c).trim().toUpperCase().match(/^(N°|Nº|N|NO\.)$/));
-        let idxRut = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('RUT'));
-        let idxNombre = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('NOMBRE'));
-        let idxCargo = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('CARGO'));
-        let idxFecha = sourceHeader.findIndex(c => String(c).trim().toUpperCase().includes('FECHA') && String(c).trim().toUpperCase().includes('INGRESO'));
-        let idxJornada = sourceHeader.findIndex(c => String(c).trim().toUpperCase().match(/^(JORNADA|TURNO)$/));
         
-        // 2. Extraer filas de datos — DETENER al encontrar sección de FINIQUITOS
+        // 2. Determinar los límites exactos de la tabla (primera y última columna con valor)
+        let tableColStart = -1, tableColEnd = -1;
+        for (let c = 0; c < sourceHeader.length; c++) {
+            if (String(sourceHeader[c]).trim() !== '') {
+                if (tableColStart === -1) tableColStart = c;
+                tableColEnd = c;
+            }
+        }
+        if (tableColStart === -1) throw new Error("No se pudo determinar el ancho de la tabla.");
+        
+        // 3. Mapear índices de columnas SOLO dentro del rango de la tabla
+        const headerSlice = sourceHeader.slice(tableColStart, tableColEnd + 1);
+        const findColIdx = (testFn) => {
+            const li = headerSlice.findIndex(c => testFn(String(c).trim().toUpperCase()));
+            return li >= 0 ? tableColStart + li : -1;
+        };
+        
+        const idxN       = findColIdx(v => /^(N°|Nº|N|NO\.)$/.test(v));
+        const idxRut     = findColIdx(v => v === 'RUT' || v.startsWith('RUT'));
+        const idxNombre  = findColIdx(v => v.includes('NOMBRE'));
+        const idxCargo   = findColIdx(v => v.includes('CARGO'));
+        const idxFecha   = findColIdx(v => v.includes('FECHA') && v.includes('INGRESO'));
+        const idxJornada = findColIdx(v => /^(JORNADA|TURNO)$/.test(v));
+        
+        // 4. Extraer SOLO las filas de la tabla
+        //    Parar: fila vacía dentro del rango de tabla (fin de tabla) o fila con FINIQUITO
         const extractedData = [];
+        let emptyCount = 0;
+        
         for (let i = sourceHeaderIndex + 1; i < rawJson.length; i++) {
             const row = rawJson[i] || [];
-            if (!row.some(cell => String(cell).trim() !== '')) continue;
+            const tableCells = row.slice(tableColStart, tableColEnd + 1);
+            const isTableRowEmpty = tableCells.every(c => String(c).trim() === '');
             
-            // Detener si la fila indica inicio de la sección de finiquitos
-            const rowText = row.map(c => String(c).trim().toUpperCase()).join(' ');
-            if (rowText.includes('FINIQUITO')) break;
+            if (isTableRowEmpty) {
+                emptyCount++;
+                if (emptyCount >= 2) break; // 2 filas vacías seguidas = fin de tabla
+                continue;
+            }
+            emptyCount = 0;
+            
+            const rowText = tableCells.map(c => String(c).trim().toUpperCase()).join(' ');
+            if (rowText.includes('FINIQUITO')) break; // sección de finiquitos = parar
             
             const rut = idxRut >= 0 ? String(row[idxRut] || '').trim() : '';
-            if (!rut) continue;
+            if (!rut) continue; // saltar fila sin RUT
+            
             extractedData.push({
                 n:       idxN       >= 0 ? row[idxN]       : '',
                 rut:     rut,
@@ -373,13 +397,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        if (extractedData.length === 0) {
+            throw new Error("No se encontraron filas con RUT dentro de la tabla. Verifique que el archivo tenga la hoja 'X' con datos.");
+        }
+        
+        if (typeof TEMPLATE_ESTANDAR_BASE64 === 'undefined') {
+            throw new Error("La plantilla estándar no está cargada. Recargue la página con Ctrl+F5.");
+        }
+        
+        // 5. Cargar la plantilla y localizar la hoja Reporte Diario
         const wb = XLSX.read(TEMPLATE_ESTANDAR_BASE64, { type: 'base64', bookVBA: true });
         const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('reporte diario')) || wb.SheetNames[0];
         const ws = wb.Sheets[sheetName];
         const wsRange = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z50');
         
-        // 4. Buscar fila de encabezados en la PLANTILLA leyendo celdas directamente
-        //    (evita falsos positivos por errores tipo #¿NOMBRE? en otras celdas)
+        // 6. Buscar fila de encabezados en la PLANTILLA leyendo celdas directamente
+        //    (evita falsos positivos por errores tipo #¿NOMBRE?)
         let tHeaderRow = -1;
         const tColMap = {};
         
@@ -406,10 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (tHeaderRow === -1) {
-            throw new Error("No se encontró la fila de encabezados (RUT+NOMBRE) en la hoja Reporte Diario de la plantilla.");
+            throw new Error("No se encontró la fila de encabezados en la hoja Reporte Diario de la plantilla.");
         }
         
-        // 5. Escribir datos celda por celda justo después del encabezado
+        // 7. Escribir datos celda por celda (sobreescribe fórmulas y errores)
         const dataStartRow = tHeaderRow + 1;
         extractedData.forEach((d, i) => {
             const r = dataStartRow + i;
