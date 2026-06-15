@@ -303,6 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const distribucionSection = document.getElementById('distribucion-section');
     const generoSection = document.getElementById('genero-section');
     const historicoSection = document.getElementById('historico-section');
+    const depuracionSection = document.getElementById('depuracion-section');
 
     function showAllSections() {
         resultsSection.style.display = 'block';
@@ -311,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (distribucionSection) distribucionSection.style.display = 'block';
         if (generoSection) generoSection.style.display = 'block';
         if (historicoSection) historicoSection.style.display = 'block';
+        if (depuracionSection) depuracionSection.style.display = 'block';
     }
 
     document.getElementById('btn-historial')?.addEventListener('click', (e) => {
@@ -347,6 +349,12 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         showAllSections();
         if (historicoSection) historicoSection.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    document.getElementById('btn-depuracion')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        showAllSections();
+        if (depuracionSection) depuracionSection.scrollIntoView({ behavior: 'smooth' });
     });
 
     function cleanStateString(state) {
