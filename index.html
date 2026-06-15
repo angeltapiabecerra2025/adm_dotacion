@@ -295,7 +295,28 @@
                     <h2>Depuración</h2>
                 </div>
                 <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); padding: 24px;">
-                    <p style="color: var(--text-muted); font-size: 14px;">Módulo de depuración en construcción...</p>
+                    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px;">Sube cualquier archivo Excel con el formato de la obra para extraer la información y descargarla en el formato estándar.</p>
+                    
+                    <div class="upload-section" style="margin-top: 0; padding: 0;">
+                        <div class="dropzone" id="dropzone-depuracion" style="margin: 0 auto; max-width: 600px;">
+                            <input type="file" id="file-depuracion" accept=".xlsx, .xls, .csv, .xlsm" hidden>
+                            <div class="dropzone-content">
+                                <div class="icon-wrapper" style="background: var(--primary); color: white;">
+                                    <i class="ph ph-file-xls"></i>
+                                </div>
+                                <h3>Subir Planilla de Obra</h3>
+                                <p>Sube el archivo Excel que deseas estandarizar</p>
+                                <span class="file-name" id="name-depuracion">Ningún archivo seleccionado</span>
+                                <button class="btn-outline" onclick="document.getElementById('file-depuracion').click()">Seleccionar Archivo</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 24px;">
+                        <button class="btn-primary" id="btn-process-depuracion" disabled>
+                            <i class="ph ph-magic-wand"></i> Generar Reporte Estándar
+                        </button>
+                    </div>
                 </div>
             </div>
         </main>
@@ -324,6 +345,7 @@
     </div>
 
     <script src="template.js"></script>
-    <script src="app.js?v=1.0.5"></script>
+    <script src="template_estandar.js"></script>
+    <script src="app.js?v=1.0.6"></script>
 </body>
 </html>

@@ -15,6 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Data state
     let dataInicio = null;
     let dataFin = null;
+    let dataDepuracion = null;
+    
+    // UI Elements Depuracion
+    const dropzoneDepuracion = document.getElementById('dropzone-depuracion');
+    const fileDepuracion = document.getElementById('file-depuracion');
+    const nameDepuracion = document.getElementById('name-depuracion');
+    const btnProcessDepuracion = document.getElementById('btn-process-depuracion');
     
     // Persisted Summary Storage
     let globalSummaryData = {};
@@ -147,6 +154,26 @@ document.addEventListener('DOMContentLoaded', () => {
     dropzoneFin.addEventListener('drop', (e) => handleFileDrop(e, fileFin, nameFin, dropzoneFin, false));
     fileFin.addEventListener('change', (e) => handleFileSelect(e, nameFin, dropzoneFin, false));
 
+    if (dropzoneDepuracion) {
+        dropzoneDepuracion.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneDepuracion.classList.add('dragover'); });
+        dropzoneDepuracion.addEventListener('dragleave', () => dropzoneDepuracion.classList.remove('dragover'));
+        dropzoneDepuracion.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzoneDepuracion.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                fileDepuracion.files = e.dataTransfer.files;
+                processFileDepuracion(file);
+            }
+        });
+        fileDepuracion.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                const file = e.target.files[0];
+                processFileDepuracion(file);
+            }
+        });
+    }
+
     // --- File Processing Functions ---
     function processFile(file, nameEl, dropzoneEl, isInicio) {
         nameEl.textContent = file.name;
@@ -232,6 +259,26 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsArrayBuffer(file);
     }
 
+    function processFileDepuracion(file) {
+        nameDepuracion.textContent = file.name;
+        dropzoneDepuracion.classList.add('has-file');
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            let targetSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[targetSheetName];
+            
+            const rawJson = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            dataDepuracion = { filename: file.name, rawJson: rawJson };
+            
+            btnProcessDepuracion.disabled = false;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
     function checkReady() {
         if (dataInicio && dataFin) {
             btnProcess.disabled = false;
@@ -250,6 +297,138 @@ document.addEventListener('DOMContentLoaded', () => {
         modalSemana.style.display = 'flex';
         inputSemanaDesde.focus();
     });
+
+    if (btnProcessDepuracion) {
+        btnProcessDepuracion.addEventListener('click', async () => {
+            if (!dataDepuracion) return;
+            
+            btnProcessDepuracion.disabled = true;
+            btnProcessDepuracion.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin-right: 8px; display: inline-block; vertical-align: middle;"></div> Procesando...';
+            
+            setTimeout(() => {
+                try {
+                    generarReporteEstandar(dataDepuracion.rawJson, dataDepuracion.filename);
+                } catch (err) {
+                    console.error(err);
+                    alert("Error al procesar el archivo: " + err.message);
+                } finally {
+                    btnProcessDepuracion.disabled = false;
+                    btnProcessDepuracion.innerHTML = '<i class="ph ph-magic-wand"></i> Generar Reporte Estándar';
+                }
+            }, 500);
+        });
+    }
+
+    function generarReporteEstandar(rawJson, originalFilename) {
+        // 1. Find Header Row in uploaded file
+        let sourceHeaderIndex = 0;
+        for (let i = 0; i < Math.min(rawJson.length, 30); i++) {
+            const rowStr = (rawJson[i] || []).join('').toUpperCase();
+            // Buscar una fila que contenga rut, nombre, cargo o jornada
+            if (rowStr.includes('RUT') || rowStr.includes('NOMBRE') || rowStr.includes('CARGO') || rowStr.includes('JORNADA')) {
+                sourceHeaderIndex = i;
+                break;
+            }
+        }
+        
+        const sourceHeader = rawJson[sourceHeaderIndex] || [];
+        
+        // 2. Identify indices for target columns
+        let idxN = -1, idxRut = -1, idxNombre = -1, idxCargo = -1, idxFecha = -1, idxJornada = -1;
+        
+        for (let i = 0; i < sourceHeader.length; i++) {
+            const col = String(sourceHeader[i]).trim().toUpperCase();
+            if (!col) continue;
+            
+            if (col === 'N°' || col === 'Nº' || col === 'N' || col === 'NO.') idxN = i;
+            else if (col.includes('RUT')) idxRut = i;
+            else if (col.includes('NOMBRE')) idxNombre = i;
+            else if (col.includes('CARGO')) idxCargo = i;
+            else if (col.includes('FECHA') && col.includes('INGRESO')) idxFecha = i;
+            else if (col.includes('JORNADA') || col.includes('TURNO')) idxJornada = i;
+        }
+        
+        // 3. Extract the data
+        const extractedData = [];
+        for (let i = sourceHeaderIndex + 1; i < rawJson.length; i++) {
+            const row = rawJson[i] || [];
+            if (!row.some(cell => String(cell).trim() !== '')) continue; // skip empty rows
+            
+            extractedData.push({
+                n: idxN >= 0 ? row[idxN] : '',
+                rut: idxRut >= 0 ? row[idxRut] : '',
+                nombre: idxNombre >= 0 ? row[idxNombre] : '',
+                cargo: idxCargo >= 0 ? row[idxCargo] : '',
+                fecha: idxFecha >= 0 ? row[idxFecha] : '',
+                jornada: idxJornada >= 0 ? row[idxJornada] : ''
+            });
+        }
+        
+        // 4. Load the Standard Template
+        if (typeof TEMPLATE_ESTANDAR_BASE64 === 'undefined') {
+            throw new Error("La plantilla estándar no está cargada en el sistema.");
+        }
+        
+        const wb = XLSX.read(TEMPLATE_ESTANDAR_BASE64, { type: 'base64', bookVBA: true });
+        
+        // Target Sheet: "reporte diario"
+        let targetSheetName = wb.SheetNames.find(n => n.toLowerCase().includes('reporte diario'));
+        if (!targetSheetName) {
+            targetSheetName = wb.SheetNames[0]; // fallback
+        }
+        const ws = wb.Sheets[targetSheetName];
+        
+        // Read template as 2D array to find headers
+        const templateJson = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        
+        let targetHeaderIndex = 0;
+        for (let i = 0; i < Math.min(templateJson.length, 30); i++) {
+            const rowStr = (templateJson[i] || []).join('').toUpperCase();
+            if (rowStr.includes('RUT') || rowStr.includes('NOMBRE')) {
+                targetHeaderIndex = i;
+                break;
+            }
+        }
+        
+        const targetHeader = templateJson[targetHeaderIndex] || [];
+        
+        // Identify indices in the template
+        let tIdxN = -1, tIdxRut = -1, tIdxNombre = -1, tIdxCargo = -1, tIdxFecha = -1, tIdxJornada = -1;
+        
+        for (let i = 0; i < targetHeader.length; i++) {
+            const col = String(targetHeader[i]).trim().toUpperCase();
+            if (!col) continue;
+            
+            if (col === 'N°' || col === 'Nº' || col === 'N') tIdxN = i;
+            else if (col === 'RUT' || col.includes('RUT')) tIdxRut = i;
+            else if (col.includes('NOMBRE')) tIdxNombre = i;
+            else if (col.includes('CARGO')) tIdxCargo = i;
+            else if (col.includes('FECHA') && col.includes('INGRESO')) tIdxFecha = i;
+            else if (col.includes('JORNADA') || col.includes('TURNO')) tIdxJornada = i;
+        }
+        
+        // Map extracted data to template rows
+        const rowsToWrite = [];
+        extractedData.forEach(d => {
+            const rowArr = new Array(targetHeader.length).fill('');
+            if (tIdxN >= 0) rowArr[tIdxN] = d.n;
+            if (tIdxRut >= 0) rowArr[tIdxRut] = d.rut;
+            if (tIdxNombre >= 0) rowArr[tIdxNombre] = d.nombre;
+            if (tIdxCargo >= 0) rowArr[tIdxCargo] = d.cargo;
+            if (tIdxFecha >= 0) rowArr[tIdxFecha] = d.fecha;
+            if (tIdxJornada >= 0) rowArr[tIdxJornada] = d.jornada;
+            rowsToWrite.push(rowArr);
+        });
+        
+        // Add the rows to the worksheet
+        if (rowsToWrite.length > 0) {
+            XLSX.utils.sheet_add_aoa(ws, rowsToWrite, { origin: { r: targetHeaderIndex + 1, c: 0 } });
+        }
+        
+        // Export file
+        const outFileName = "Reporte_Estandarizado_" + originalFilename.replace(/\.[^/.]+$/, "") + ".xlsm";
+        XLSX.writeFile(wb, outFileName, { bookSST: true, bookVBA: true });
+    }
 
     btnCancelSemana.addEventListener('click', () => {
         modalSemana.style.display = 'none';
